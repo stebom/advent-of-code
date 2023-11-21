@@ -1,0 +1,12 @@
+{
+  "name": "js-aoc",
+  "version": "1.0.0",
+  "description": "",
+  "main": "2015_day_3.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
