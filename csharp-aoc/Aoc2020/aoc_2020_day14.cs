@@ -23,10 +23,8 @@ static class Day14 {
 
                 var value = Convert.ToString(int.Parse(tokens[1]), 2).PadLeft(36, '0').ToArray();
                 for (var i = 0; i < mask.Length; i++) {
-                    if (mask[i] == '0') {
-                        value[i] = '0';
-                    } else if (mask[i] == '1') {
-                        value[i] = '1';
+                    if (mask[i] == '0' || mask[i] == '1') {
+                        value[i] = mask[i];
                     }
                 }
 
