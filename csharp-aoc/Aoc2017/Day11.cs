@@ -6,14 +6,15 @@ static class Day11 {
         Walk(input);
     }
 
-    static int Distance(Position vec) => new[] { Math.Abs(vec.R), Math.Abs(vec.Q), Math.Abs(vec.S) }.Max();
+    static int Distance(this Position vec) => (Math.Abs(vec.R) + Math.Abs(vec.Q) + Math.Abs(vec.S)) / 2;
 
     record struct Position(int R, int Q, int S);
 
     static void Walk(string[] steps) {
-        var pos = new Position(0, 0, 0);
+
         var max = 0;
 
+        var pos = new Position(0, 0, 0);
         foreach (var line in steps) {
             var diff = line switch {
                 "nw" => new Position(0, -1, 1),
@@ -26,12 +27,10 @@ static class Day11 {
             }; ;
 
             pos = new(pos.R + diff.R, pos.Q + diff.Q, pos.S + diff.S);
-
-            var dist = Distance(pos);
-            max = Math.Max(max, dist);
+            max = Math.Max(max, pos.Distance());
         }
 
-        Console.WriteLine(Distance(pos));
+        Console.WriteLine(pos.Distance());
         Console.WriteLine(max);
     }
 }
