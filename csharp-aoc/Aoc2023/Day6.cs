@@ -21,7 +21,7 @@ internal class Day6 {
     }
 
     static void Part2(string[] lines) {
-        var time = int.Parse(lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Aggregate((a, b) => a + b));
+        var time = long.Parse(lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Aggregate((a, b) => a + b));
         var distance = long.Parse(lines[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).Aggregate((a, b) => a + b));
         var product = CountWays(new Goal(time, distance));
         Console.WriteLine($"Part 2: {product}");
@@ -29,5 +29,5 @@ internal class Day6 {
 
     static long CountWays(Goal goal) => Range(goal.Time).Count(t => (goal.Time - t) * t > goal.Distance);
 
-    static IEnumerable<long> Range(long end) { for (var i = 0; i < end; i++) { yield return i; } }
+    static IEnumerable<long> Range(long end) { for (var i = 0; i <= end; i++) { yield return i; } }
 }
