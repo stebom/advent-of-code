@@ -1,1 +1,1 @@
-﻿Aoc2023.Day5.Run();
+﻿Aoc2023.Day6.Run();
