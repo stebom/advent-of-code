@@ -4,4 +4,5 @@
 //Aoc2023.Day4.Run();
 //Aoc2023.Day5.Run();
 //Aoc2023.Day6.Run();
-Aoc2023.Day7.Run();
+//Aoc2023.Day7.Run();
+Aoc2023.Day8.Run();
