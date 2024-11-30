@@ -138,10 +138,8 @@ public static class Day13
 
             else if (o is int)
             {
-#pragma warning disable CS8604 // Possible null reference argument.
-                foreach (var s in o.ToString().Select(c => c))
+                foreach (var s in o.ToString()!.Select(c => c))
                     yield return s;
-#pragma warning restore CS8604 // Possible null reference argument.
             }
 
             if (o != list.Last())
@@ -188,6 +186,6 @@ public static class Day13
     class PacketSorter : IComparer<List<object>>
     {
         public int Compare(List<object>? x, List<object>? y)
-         => Walk(x.GetEnumerator(), y.GetEnumerator()) == true ? -1 : 1;
+         => Walk(x!.GetEnumerator(), y!.GetEnumerator()) == true ? -1 : 1;
     }
 }

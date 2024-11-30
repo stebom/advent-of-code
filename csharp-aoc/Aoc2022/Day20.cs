@@ -5,8 +5,8 @@ public class Day20
     public static HashSet<Link> Links = new HashSet<Link>();
     public static void Run()
     {
-        Link start = null;
-        Link current = null;
+        Link start = null!;
+        Link current = null!;
 
         var part2 = true;
 
@@ -35,15 +35,15 @@ public class Day20
             foreach (var link in Links)
             {
                 if (link == start)
-                    if (link.Value > 0) start = link.Right;
-                    else start = link.Left;
+                    if (link.Value > 0) start = link.Right!;
+                    else start = link.Left!;
 
                 if (link.Value == 0)
                     continue;
 
                 // disonnect link
-                link.Left.Right = link.Right;
-                link.Right.Left = link.Left;
+                link.Left!.Right = link.Right;
+                link.Right!.Left = link.Left;
 
                 // <-N-R-> <-L-N1-R-> <-L-N2->
                 var insertion = Walk(link);
@@ -56,7 +56,7 @@ public class Day20
 
                 link.Left = insertion;
                 link.Right = insertion.Right;
-                insertion.Right.Left = link;
+                insertion.Right!.Left = link;
                 insertion.Right = link;
 
                 //PrintLink();
@@ -81,17 +81,17 @@ public class Day20
         steps %= Links.Count - 1;
         for (var i = 0; i < steps; i++)
         {
-            if (left) current = current.Left;
-            else current = current.Right;
+            if (left) current = current.Left!;
+            else current = current.Right!;
         }
-        if (left) return current.Left;
+        if (left) return current.Left!;
         return current;
     }
 
     public static Link WalkRight(Link current, int steps)
     {
         for (var i = 0; i < steps; i++)
-            current = current.Right;
+            current = current.Right!;
         return current;
     }
 
@@ -101,10 +101,10 @@ public class Day20
         var seen = new HashSet<Link>();
         while (true)
         {
-            if (seen.Contains(iterator))
+            if (seen.Contains(iterator!))
                 break;
 
-            Console.Write($"{iterator.Value}, ");
+            Console.Write($"{iterator!.Value}, ");
 
             seen.Add(iterator);
 
