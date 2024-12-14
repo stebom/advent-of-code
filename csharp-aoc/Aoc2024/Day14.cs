@@ -1,8 +1,5 @@
 ﻿using System.Drawing;
-using System.Reflection;
-using System.Reflection.Emit;
 using System.Text.RegularExpressions;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Aoc2024;
 
@@ -33,10 +30,10 @@ public static class Day14
         Console.WriteLine($"Part 1: {Part1(robots)}");
         Console.WriteLine($"Part 2: {Part2(robots)}");
 
-        //PrintGrid(Rows, Columns, robots, 26);
+        //PrintGrid(Render(robots, Part2(robots)));
     }
 
-    private static long Part1(List<Robot> robots)
+    private static int Part1(List<Robot> robots)
     {
         const int time = 100;
 
@@ -59,13 +56,26 @@ public static class Day14
         return quadrants.Aggregate((a, b) => a * b);
     }
 
-    private static long Part2(List<Robot> robots)
+    private static int Part2(List<Robot> robots)
     {
-        // Found this by rending bitmaps and looking for the tree!
-        const int part2 = 6285;
-        PrintGrid(Render(robots, part2));
-        Draw(robots, part2);
-        return part2;
+        for (var time = 0; time < 10_000; time++)
+        {
+            var numberOfPostitions = robots.Select(robot =>
+            {
+                var row = (robot.InitialPosition.R + robot.Velocity.R * time) % Rows;
+                var column = (robot.InitialPosition.C + robot.Velocity.C * time) % Columns;
+                row = row < 0 ? Rows + row : row;
+                column = column < 0 ? Columns + column : column;
+                return (row, column);
+            }).Distinct().Count();
+
+            if (numberOfPostitions == robots.Count)
+            {
+                return time;
+            }
+        }
+
+        return -1;
     }
 
     private static void PrintGrid(IEnumerable<char> grid)
@@ -96,6 +106,7 @@ public static class Day14
         }
     }
 
+    /*
     private static void Draw(List<Robot> robots, int time)
     {
         var positions = robots.Select(robot =>
@@ -115,4 +126,5 @@ public static class Day14
         }
         bitmap.Save($"day-14-{time}.bmp");
     }
+    */
 }
