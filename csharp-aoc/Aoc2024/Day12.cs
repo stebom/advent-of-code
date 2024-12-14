@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks.Dataflow;
+﻿using System.Drawing.Imaging;
+using System.Linq;
+using System.Net.NetworkInformation;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace Aoc2024;
@@ -11,7 +12,6 @@ public static class Day12
     public static void Solve()
     {
         var grid = File.ReadAllLines(@"input/day12_input.txt").Select(l => l.ToCharArray()).ToArray();
-        var printRegion = false;
 
         var visited = new HashSet<Cell>();
         var regions = new List<HashSet<Cell>>();
@@ -37,32 +37,12 @@ public static class Day12
                 part2 += area * sides;
 
                 //Console.WriteLine($"(Part 1) A region of {grid[cell.R][cell.C]} plants with price {area} * {perimeter} = {area * perimeter}");
-                Console.WriteLine($"(Part 2) A region of {grid[cell.R][cell.C]} plants with price {area} * {sides} = {area * sides}");
-
-                if (printRegion) PrintRegion(region, grid[cell.R][cell.C]);
+                //Console.WriteLine($"(Part 2) A region of {grid[cell.R][cell.C]} plants with price {area} * {sides} = {area * sides}");
             }
         }
 
         Console.WriteLine($"Part 1: {part1}");
         Console.WriteLine($"Part 2: {part2}");
-    }
-
-    private static void PrintRegion(HashSet<Cell> region, char plant)
-    {
-        var (rMin, rMax) = (region.Min(r => r.R), region.Max(r => r.R));
-        var (cMin, cMax) = (region.Min(r => r.C), region.Max(r => r.C));
-
-        Console.WriteLine($"---- Region of {plant} ----");
-
-        for (var r = rMin; r <= rMax; r++)
-        {
-            for (var c = cMin; c <= cMax; c++)
-            {
-                Console.Write(region.Contains(new Cell(r, c)) ? plant : ' ');
-            }
-            Console.WriteLine();
-        }
-        Console.WriteLine("-----------------");
     }
 
     private static HashSet<Cell> GetRegion(char[][] grid, Cell cell)
@@ -102,70 +82,43 @@ public static class Day12
         return count;
     }
 
-    private static Cell[] Directions = [new Cell(1, 0), new Cell(0, 1), new Cell(-1, 0), new Cell(0, -1)];
-
-    record class Neighbour(int R, int C)
+    record class Neighbour(int R, int C, int S)
     {
         public bool Visited;
     }
 
     private static int CalculateSides(HashSet<Cell> plots)
     {
-        var neighbours = new List<Neighbour>();
-        
-        foreach (var plot in plots)
+        var neighbours = plots
+            .SelectMany(plot => (Neighbour[])[ new Neighbour(plot.R - 1, plot.C, 0),
+                                               new Neighbour(plot.R + 1, plot.C, 1),
+                                               new Neighbour(plot.R, plot.C + 1, 2),
+                                               new Neighbour(plot.R, plot.C - 1, 3)
+                                             ])
+            .Where(n => !plots.Contains(new(n.R,n.C)))
+            .OrderBy(n => n.R)
+            .ThenBy(n => n.C)
+            .ToList();
+
+        var sides = 0;
+        while (neighbours.Any(n => !n.Visited))
         {
-            foreach (var direction in Directions)
-            {
-                var neighbour = new Cell(plot.R + direction.R, plot.C + direction.C);
-                if (!plots.Contains(neighbour)) neighbours.Add(new(neighbour.R, neighbour.C));
-            }
+            var neighbour = neighbours.First(n => !n.Visited);
+            neighbour.Visited = true;
+            sides++;
+
+            if (neighbour.S is 0 or 1) Grow(neighbours, neighbour, 0, 1);
+            else if (neighbour.S is 2 or 3) Grow(neighbours, neighbour, 1, 0);
         }
 
-        neighbours = neighbours.OrderBy(n => n.R).OrderBy(n => n.C).ToList();
-        
-        var count = 0;
-        while (!neighbours.All(n => n.Visited))
-        {
-            for (var i = 0; i < neighbours.Count; i++)
-            {
-                var neighbour = neighbours[i];
-                if (neighbour.Visited) continue;
-
-                neighbour.Visited = true;
-                count++;
-
-                var current = neighbour;
-
-                // Try merge horizontally
-                while (current != null)
-                {
-                    var next = neighbours.FirstOrDefault(n => n.R == current.R && n.C == current.C + 1 && !n.Visited);
-                    if (next != null)
-                    {
-                        next.Visited = true;
-                    }
-                    current = next;
-                }
-
-                // Try merge vertically
-                current = neighbour;
-                while (current != null)
-                {
-                    var next = neighbours.FirstOrDefault(n => n.R == current.R + 1 && n.C == current.C && !n.Visited);
-                    if (next != null)
-                    {
-                        next.Visited = true;
-                    }
-                    current = next;
-                }
-            }
-        }
-
-        return count;
+        return sides;
     }
 
-    private static bool Touches(Cell a, Cell b) =>
-        new Cell(a.R + 1, a.C) == b || new Cell(a.R, a.C + 1) == b ||
-        new Cell(a.R - 1, a.C) == b || new Cell(a.R, a.C - 1) == b;
+    private static void Grow(List<Neighbour> all, Neighbour current, int r, int c)
+    {
+        current.Visited = true;
+
+        var next = all.FirstOrDefault(n => n.R == current.R + r && n.C == current.C + c && n.S == current.S);
+        if (next != null) Grow(all, next, r, c);
+    }
 }
