@@ -35,29 +35,11 @@ public static class Day16
 
         Dictionary<Cell, Node> nodes = [];
         var (start, end) = WalkNodes(grid, nodes);
+        var startState = new State(start, East);
 
-        var best = FindBestScore(nodes, new State(start, East), end);
-        Console.WriteLine($"Part 1: {best}");
-
-        var distances = FindDistances(nodes, end, new State(start, East));
-        var reversedDistances = FindDistances(nodes, end, new State(end, South), new State(start, West));
-
-        var count = 0;
-        foreach (var node in nodes)
-        {
-            foreach (var direction in Directions) {
-
-                var state = new State(node.Key, direction);
-                if (distances.ContainsKey(state) &&
-                    reversedDistances.ContainsKey(state) &&
-                    distances[state] + reversedDistances[state] == best)
-                {
-                    count++;
-                }
-            }
-
-        }
-        Console.WriteLine($"Part 2: {count}");
+        var bestScore = FindBestScore(nodes, startState, end);
+        Console.WriteLine($"Part 1: {bestScore}");
+        Console.WriteLine($"Part 2: {FindBestPath(nodes, startState, end, bestScore)}");
     }
 
     static long FindBestScore(Dictionary<Cell, Node> nodes, State start, Cell target)
@@ -77,50 +59,66 @@ public static class Day16
             var (cell, direction) = state;
             var node = nodes[state.Position];
 
-            if (node.CanWalk(direction))
+            foreach (var d in Directions)
             {
-                queue.Enqueue(new State(cell.Walk(direction), direction), score + 1);
-            }
-
-            foreach (var d in Directions.Where(d => d != direction))
-            {
-                queue.Enqueue(new State(cell, d), score + 1000);
+                if (!node.CanWalk(d)) continue;
+                queue.Enqueue(new State(cell.Walk(d), d), score + 1 + (d == direction ? 0 : 1000));
             }
         }
 
         return -1;
     }
 
-    static Dictionary<State, long> FindDistances(Dictionary<Cell, Node> nodes, Cell target, params State[] starts)
-    {
-        var queue = new PriorityQueue<State, long>();
-        foreach (var start in starts) queue.Enqueue(start, 0);
+    record StateWithPath(State State, List<Cell> Path);
 
-        var distance = new Dictionary<State, long>();
-        var visited = new HashSet<State>();
+    static long FindBestPath(Dictionary<Cell, Node> nodes, State start, Cell end, long maxScore)
+    {
+        var queue = new PriorityQueue<StateWithPath, long>();
+        queue.Enqueue(new(start, [start.Position]), 0);
+
+        var dist = new Dictionary<State, long> { { start, 0 } };
+
+        var paths = new HashSet<Cell>();
 
         while (queue.TryDequeue(out var state, out var score))
         {
-            if (visited.Contains(state)) continue;
-            visited.Add(state);
+            var ((cell, direction), path) = state;
 
-            if (!distance.ContainsKey(state)) distance[state] = score;
-
-            var (cell, direction) = state;
-            var node = nodes[state.Position];
-
-            if (node.CanWalk(direction))
+            if (cell == end && score <= maxScore )
             {
-                queue.Enqueue(new State(cell.Walk(direction), direction), score + 1);
+                foreach (var p in path) paths.Add(p);
+                continue;
             }
 
-            foreach (var d in Directions.Where(d => d != direction))
+            var node = nodes[cell];
+            foreach (var d in Directions)
             {
-                queue.Enqueue(new State(cell, d), score + 1000);
+                if (!node.CanWalk(d)) continue;
+
+                var nextScore = score + 1 + (d == direction ? 0 : 1000);
+                var nextState = new State(cell.Walk(d), d);
+
+                if (dist.TryGetValue(nextState, out var alt))
+                {
+                    if (nextScore < alt)
+                    {
+                        queue.Enqueue(new(nextState, [.. path, nextState.Position]), nextScore);
+                        dist[nextState] = nextScore;
+                    }
+                    if (nextScore == alt)
+                    {
+                        queue.Enqueue(new(nextState, [.. path, nextState.Position]), nextScore);
+                    }
+                }
+                else
+                {
+                    queue.Enqueue(new(nextState, [.. path, nextState.Position]), nextScore);
+                    dist[nextState] = nextScore;
+                }
             }
         }
 
-        return distance;
+        return paths.Count;
     }
 
     private static HashSet<Cell> GetVisitedPaths(Cell start, Cell end, Dictionary<Cell, List<Cell>> prev)
