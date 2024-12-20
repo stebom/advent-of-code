@@ -1,81 +1,129 @@
-﻿using System.Data;
-using System.Linq;
-using static System.Net.Mime.MediaTypeNames;
-
-namespace Aoc2024;
+﻿namespace Aoc2024;
 
 public static class Day16
 {
+    record struct Cell(int R, int C);
+
+    record class Node
+    {
+        public Node? North { get; set; }
+        public Node? East { get; set; }
+        public Node? South { get; set; }
+        public Node? West { get; set; }
+    }
+
+    record struct State(Cell Position, Cell Direction);
+
+    static readonly Cell North = new(-1, 0);
+    static readonly Cell East = new(0, 1);
+    static readonly Cell South = new(1, 0);
+    static readonly Cell West = new(0, -1);
+    static readonly Cell[] Directions = [North, East, South, West];
+
+    static bool CanWalk(this Node node, Cell direction)
+    {
+        if (direction == North) return node.North != null;
+        if (direction == East) return node.East != null;
+        if (direction == South) return node.South != null;
+        if (direction == West) return node.West != null;
+        return false;
+    }
+
     public static void Solve()
     {
         var grid = File.ReadAllLines(@"input/day16_input.txt").Select(l => l.ToCharArray()).ToArray();
 
-        var start = Find(grid, 'S');
-        var end = Find(grid, 'E');
+        Dictionary<Cell, Node> nodes = [];
+        var (start, end) = WalkNodes(grid, nodes);
 
-        Console.WriteLine($"Part 1: {FindBestScore(grid, start, end)}");
-        //Console.WriteLine($"Part 2: {FindPaths(grid, start, end, FindBestScore(grid, start, end)).Count()}");
+        var best = FindBestScore(nodes, new State(start, East), end);
+        Console.WriteLine($"Part 1: {best}");
+
+        var distances = FindDistances(nodes, end, new State(start, East));
+        var reversedDistances = FindDistances(nodes, end, new State(end, South), new State(start, West));
+
+        var count = 0;
+        foreach (var node in nodes)
+        {
+            foreach (var direction in Directions) {
+
+                var state = new State(node.Key, direction);
+                if (distances.ContainsKey(state) &&
+                    reversedDistances.ContainsKey(state) &&
+                    distances[state] + reversedDistances[state] == best)
+                {
+                    count++;
+                }
+            }
+
+        }
+        Console.WriteLine($"Part 2: {count}");
     }
 
-    record struct Cell(int R, int C);
-    record State(Cell Position, Cell Direction);
-
-    static readonly Cell North  = new(-1, 0);
-    static readonly Cell East   = new( 0, 1);
-    static readonly Cell South  = new( 1, 0);
-    static readonly Cell West   = new( 0,-1);
-
-    static long FindBestScore(char[][] grid, Cell start, Cell end)
+    static long FindBestScore(Dictionary<Cell, Node> nodes, State start, Cell target)
     {
         var queue = new PriorityQueue<State, long>();
-        queue.Enqueue(new State(start, East), 0);
+        queue.Enqueue(start, 0);
 
-        var distances = new Dictionary<Cell, long> { { start, 0} };
-        var prev = new Dictionary<Cell,HashSet<Cell>>();
+        var visited = new HashSet<State>();
 
         while (queue.TryDequeue(out var state, out var score))
         {
-            if (state.Position == end)
-            {
-                var paths = GetPaths(start, end, prev);
-                Console.WriteLine($"Unique cells: {paths.Count}");
+            if (state.Position == target) return score;
+            
+            if (visited.Contains(state)) continue;
+            visited.Add(state);
 
-                for (var r = 0; r < grid.Length; r++)
-                {
-                    for (var c = 0; c < grid[r].Length; c++)
-                    {
-                        Console.Write(paths.Contains(new(r,c)) ? 'O' : grid[r][c]);
-                    }
-                    Console.WriteLine();
-                }
-                return score;
+            var (cell, direction) = state;
+            var node = nodes[state.Position];
+
+            if (node.CanWalk(direction))
+            {
+                queue.Enqueue(new State(cell.Walk(direction), direction), score + 1);
             }
 
-            Console.WriteLine($"Walking {state.Position}");
-
-            foreach (var next in state.Position.Walk(North, East, South, West))
+            foreach (var d in Directions.Where(d => d != direction))
             {
-                if (grid[next.Position.R][next.Position.C] == '#') continue;
-                if (!distances.ContainsKey(next.Position)) distances[next.Position] = long.MaxValue;
-                if (!prev.ContainsKey(next.Position)) prev[next.Position] = [];
-
-                var nextScore = Score(state.Direction, next.Direction) + score;
-
-                Console.WriteLine($"  -> {next.Position} ({nextScore})");
-
-                if (nextScore <= distances[next.Position])
-                {
-                    distances[next.Position] = nextScore;
-                    prev[next.Position].Add(state.Position);
-                    queue.Enqueue(next, nextScore);
-                }
+                queue.Enqueue(new State(cell, d), score + 1000);
             }
         }
 
         return -1;
     }
 
-    private static HashSet<Cell> GetPaths(Cell start, Cell end, Dictionary<Cell, HashSet<Cell>> prev)
+    static Dictionary<State, long> FindDistances(Dictionary<Cell, Node> nodes, Cell target, params State[] starts)
+    {
+        var queue = new PriorityQueue<State, long>();
+        foreach (var start in starts) queue.Enqueue(start, 0);
+
+        var distance = new Dictionary<State, long>();
+        var visited = new HashSet<State>();
+
+        while (queue.TryDequeue(out var state, out var score))
+        {
+            if (visited.Contains(state)) continue;
+            visited.Add(state);
+
+            if (!distance.ContainsKey(state)) distance[state] = score;
+
+            var (cell, direction) = state;
+            var node = nodes[state.Position];
+
+            if (node.CanWalk(direction))
+            {
+                queue.Enqueue(new State(cell.Walk(direction), direction), score + 1);
+            }
+
+            foreach (var d in Directions.Where(d => d != direction))
+            {
+                queue.Enqueue(new State(cell, d), score + 1000);
+            }
+        }
+
+        return distance;
+    }
+
+    private static HashSet<Cell> GetVisitedPaths(Cell start, Cell end, Dictionary<Cell, List<Cell>> prev)
     {
         var queue = new Queue<Cell>();
         queue.Enqueue(end);
@@ -86,41 +134,61 @@ public static class Day16
         {
             var current = queue.Dequeue();
             visited.Add(current);
-
             if (current == start) continue;
-
-            Console.WriteLine($"{current} -> {prev[current].Count}");
-
-            foreach (var parent in prev[current])
-            {
-                Console.WriteLine($"{current} -> {parent}");
-                queue.Enqueue(parent);
-            }
+            foreach (var parent in prev[current]) queue.Enqueue(parent);
         }
 
         return visited;
     }
 
-    static long Score(Cell A, Cell B)
+    static Cell Walk(this Cell cell, Cell direction) => new(cell.R + direction.R, cell.C + direction.C);
+
+    static (Cell Start, Cell End) WalkNodes(char[][] grid, Dictionary<Cell, Node> nodes)
     {
-        if (A == B) return 1;
-        if ((A.R + B.R, A.C + B.C) == (0, 0)) return 2001;
-        return 1001;
-    }
+        Cell start = default;
+        Cell end = default;
 
-    static IEnumerable<State> Walk(this Cell cell, params Cell[] directions) => directions.Select(direction => cell.Walk(direction));
-
-    static State Walk(this Cell cell, Cell direction) => new(new(cell.R + direction.R, cell.C + direction.C),direction);
-
-    static Cell Find(char[][] grid, char needle)
-    {
-        for (var r = 0; r < grid.Length; r++)
+        for (var r = 1; r < grid.Length - 1; r++)
         {
-            for (var c = 0; c < grid[r].Length; c++)
+            for (var c = 1; c < grid[r].Length - 1; c++)
             {
-                if (grid[r][c] == needle) return new Cell(r, c);
+                if (grid[r][c] == '#') continue;
+
+                var cell = new Cell(r, c);
+
+                if (grid[r][c] == 'S') start = cell;
+                if (grid[r][c] == 'E') end = cell;
+
+                var node = new Node();
+
+                if (nodes.TryGetValue(new(r + North.R, c + North.C), out var northNode))
+                {
+                    node.North = northNode;
+                    northNode.South = node;
+                }
+
+                if (nodes.TryGetValue(new(r + East.R, c + East.C), out var east))
+                {
+                    node.East = east;
+                    east.West = node;
+                }
+
+                if (nodes.TryGetValue(new(r + South.R, c + South.C), out var south))
+                {
+                    node.South = south;
+                    south.North = node;
+                }
+
+                if (nodes.TryGetValue(new(r + West.R, c + West.C), out var west))
+                {
+                    node.West = west;
+                    west.East = node;
+                }
+
+                nodes.Add(cell, node);
             }
         }
-        throw new Exception($"Can't find in grid {needle}");
+
+        return (start, end);
     }
 }
