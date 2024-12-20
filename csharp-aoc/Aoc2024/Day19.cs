@@ -13,18 +13,14 @@ public static class Day19
         var patterns = groups[0].Split(", ").OrderByDescending(s => s.Length).ToImmutableArray();
 
         var part1 = 0;
-        var part2 = 0;
+        long part2 = 0;
 
         foreach (var design in groups[1].Split("\r\n"))
         {
-            // Trim patterns
-            var usedPatterns = patterns.Where(design.Contains).OrderByDescending(x => x.Length).ToImmutableArray();
-
-            Console.WriteLine($"Searching {design}");
-            part1 += Search(usedPatterns, design);
-            Console.WriteLine($" ... part 1 done");
-            part2 += SearchAll(usedPatterns, design);
-            Console.WriteLine($" ... part 2 done");
+            // Trim patterns to matching only
+            var trimmedPatterns = patterns.Where(design.Contains).OrderByDescending(x => x.Length).ToImmutableArray();
+            part1 += Search(trimmedPatterns, design);
+            part2 += SearchAll(trimmedPatterns, design);
         }
 
         Console.WriteLine($"Part 1: {part1}");
@@ -61,35 +57,17 @@ public static class Day19
     }
 
 
-    static int SearchAll(ImmutableArray<string> patterns, string design)
+    static long SearchAll(ImmutableArray<string> patterns, string design) => SearchRecursive(patterns, [], design);
+
+    static long SearchRecursive(ImmutableArray<string> patterns, Dictionary<string, long> lut, string current)
     {
-        var queue = new Queue<string>();
-        queue.Enqueue(design);
+        if (lut.TryGetValue(current, out var solutions)) return solutions;
 
-        var visited = new HashSet<string>();
+        if (current == string.Empty) return 1;
 
-        var count = 0;
-        while (queue.Count > 0)
-        {
-            var current = queue.Dequeue();
-            if (current == string.Empty)
-            {
-                count++;
-                continue;
-            }
+        solutions = patterns.Where(current.StartsWith).Sum(p => SearchRecursive(patterns, lut, current[p.Length..]));
 
-            if (visited.Contains(current)) continue;
-            visited.Add(current);
-
-            foreach (var pattern in patterns)
-            {
-                if (current.StartsWith(pattern))
-                {
-                    queue.Enqueue(current[pattern.Length..]);
-                }
-            }
-        }
-
-        return count;
+        lut[current] = solutions;
+        return solutions;
     }
 }
