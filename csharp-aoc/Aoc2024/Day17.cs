@@ -4,20 +4,20 @@ public static class Day17
 {
     record Registers
     {
-        public required int A { get; set; }
-        public required int B { get; set; }
-        public required int C { get; set; }
+        public required long A { get; set; }
+        public required long B { get; set; }
+        public required long C { get; set; }
     }
 
-    record Program(int[] Instructions, Registers Registers, List<int> Output)
+    record Program(long[] Instructions, Registers Registers, List<long> Output)
     {
-        public int InstructionPointer { get; set; }
+        public long InstructionPointer { get; set; }
 
-        public int Instruction => Instructions[InstructionPointer];
+        public long Instruction => Instructions[InstructionPointer];
 
-        public int Operand => Instructions[InstructionPointer + 1];
+        public long Operand => Instructions[InstructionPointer + 1];
 
-        public int ComboOperand => Operand switch
+        public long ComboOperand => Operand switch
         {
             // Combo operands 0 through 3 represent literal values 0 through 3.
             0 or 1 or 2 or 3 => Operand,
@@ -49,7 +49,7 @@ public static class Day17
             {
                 var numerator = Registers.A;
                 var denominator = Math.Pow(2, ComboOperand);
-                Registers.A = (int)(numerator / denominator);
+                Registers.A = (long)(numerator / denominator);
             }
             // The bxl instruction (opcode 1) calculates the bitwise XOR of register B and the instruction's literal operand,
             // then stores the result in register B.
@@ -90,14 +90,14 @@ public static class Day17
             {
                 var numerator = Registers.A;
                 var denominator = Math.Pow(2, ComboOperand);
-                Registers.B = (int)(numerator / denominator);
+                Registers.B = (long)(numerator / denominator);
             }
             // The cdv instruction (opcode 7) works exactly like the adv instruction except that the result is stored in the C register.
             else if (Instruction is 7)
             {
                 var numerator = Registers.A;
                 var denominator = Math.Pow(2, ComboOperand);
-                Registers.C = (int)(numerator / denominator);
+                Registers.C = (long)(numerator / denominator);
             }
 
             InstructionPointer += 2;
@@ -106,7 +106,7 @@ public static class Day17
 
     public static void Solve()
     {
-        int[] instructions = [2, 4, 1, 1, 7, 5, 0, 3, 1, 4, 4, 5, 5, 5, 3, 0];
+        long[] instructions = [2, 4, 1, 1, 7, 5, 0, 3, 1, 4, 4, 5, 5, 5, 3, 0];
         Part1(new Program(instructions, new Registers { A = 51571418, B = 0, C = 0 }, []));
         Part2(instructions);
     }
@@ -114,20 +114,43 @@ public static class Day17
     private static void Part1(Program program)
     {
         program.Run();
-        Console.WriteLine($"{program.Registers}");
-        Console.WriteLine($"Output: {string.Join(",", program.Output)}");
+        Console.WriteLine($"Part 1: {string.Join(",", program.Output)}");
     }
-    private static void Part2(int[] instructions)
+
+    private static void Part2(long[] instructions)
     {
-        var registerA = 0;
-        while (true)
+        List<long> validValsA = [0];
+
+        var reversed = instructions.Reverse().ToList();
+
+        // For each program digit
+        for (int i = 0; i < reversed.Count; i++)
         {
-            var program = new Program(instructions, new Registers { A = registerA, B = 0, C = 0 }, []);
-            program.Run();
-            if (instructions.SequenceEqual(program.Output)) break;
-            registerA++;
+            // We need to hand-build a valid Register 'A', 3 bits at a time
+            long oc = instructions[i];
+
+            // Valid A registers get stored here
+            List<long> newAs = []; 
+            foreach (var a in validValsA)
+            { 
+                for (long j = 0; j < 8; j++) // 8 == 3 bits
+                {   // Find valid bit replacements and build 'A' Registers
+                    long newA = a << 3; // Bitshift 3 to make room for bits
+                    newA += j; // Add bits to the larger number
+
+                    var program = new Program(instructions, new Registers { A = newA, B = 0, C = 0 }, []);
+                    program.Run();
+                    if (program.Output[0] == reversed[i])
+                    {
+                        newAs.Add(newA); // Save valid
+                    }
+                }
+                }
+
+            // Use valid A's for next program digit
+            validValsA = [.. newAs];
         }
-        
-        Console.WriteLine($"Part 2: {registerA}");
+
+        Console.WriteLine($"Part 2: {validValsA.Min()}");
     }
 }
