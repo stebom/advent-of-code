@@ -1,134 +1,105 @@
-﻿using System.Reflection.Metadata.Ecma335;
-
-namespace Aoc2024;
+﻿namespace Aoc2024;
 
 public static class Day20
 {
     record struct Cell(short R, short C);
-    record struct State(Cell Cell, int Steps);
-    record struct Cheat(Cell Start, Cell End);
-
-    record struct CheatState(Cell Cell, Cell? CheatStart, Cell? CheatEnd);
 
     static readonly Cell[] Directions = [new(-1, 0), new(0, 1), new(1, 0), new(0, -1)];
 
     public static void Solve()
     {
         var grid = File.ReadAllLines(@"input/day20_input.txt").Select(l => l.ToCharArray()).ToArray();
+        var (start,end) = FindNamedPositions(grid);
 
-        var start = Find(grid, 'S');
-        var end = Find(grid, 'E');
+        var (connections, steps) = Walk(grid, start, end);
 
-        const int shortcut = 100;
-       
-        var reference = Solve(grid, start, end);
+        Console.WriteLine($"Walked {connections.Count} from start to end: {start} -> {end}");
+        Console.WriteLine($"Number of steps: {steps.Count}");
+        Console.WriteLine($"Steps to start: {steps[start]}");
+        Console.WriteLine($"Steps to end: {steps[end]}");
 
-        Console.WriteLine($"Reference is {reference} steps");
-
-        var cheats = SolveWithCheats(grid, start, end, reference - shortcut + 1);
-
-        Console.WriteLine($"Number of cheats that shortcuts {shortcut} steps is {cheats}");
-    }
-
-
-    static int Solve(char[][] grid, Cell start, Cell end)
-    {
-        var queue = new PriorityQueue<Cell, int>();
-        queue.Enqueue(start, 0);
-
-        var visited = new HashSet<Cell>();
-
-        while (queue.TryDequeue(out var cell, out var steps))
+        var cheats = new Dictionary<int, int>();
+        foreach (var current in steps.Keys)
         {
-            if (cell == end) return steps;
-
-            if (visited.Contains(cell)) continue;
-            visited.Add(cell);
-
-            foreach (var next in Next(grid, cell))
+            foreach (var cheat in GetCheats(steps, current, steps[end]))
             {
-                if (grid[next.R][next.C] == '#') continue;
-                queue.Enqueue(next, steps + 1);
+                var saved = steps[cheat] - steps[current] - 2;
+                if (!cheats.TryAdd(saved, 1))
+                {
+                    cheats[saved]++;
+                }
             }
         }
 
-        throw new Exception("No solution found");
-    }
-
-    static int SolveWithCheats(char[][] grid, Cell start, Cell end, int maxSteps)
-    {
-        var queue = new PriorityQueue<CheatState, int>();
-        queue.Enqueue(new(start, null, null), 0);
-
-        var visited = new HashSet<CheatState>();
-        var cheats = new HashSet<Cheat>();
-
-        while (queue.TryDequeue(out var state, out var steps))
+        var sum = 0;
+        foreach (var kvp in cheats.OrderBy(kvp => kvp.Key).Where(kvp => kvp.Key >= 100))
         {
-            if (steps > maxSteps) continue;
-            if (state.Cell == end)
-            {
-                if (state.CheatStart != null && state.CheatEnd != null)
-                {
-                    Console.WriteLine($"  Found cheat shortcutting {maxSteps - steps} steps at {state.CheatStart} -> {state.CheatEnd}");
-                    cheats.Add(new(state.CheatStart.Value, state.CheatEnd.Value));
-                }
-                continue;
-            }
-
-            if (visited.Contains(state)) continue;
-            visited.Add(state);
-
-            foreach (var next in Next(grid, state.Cell))
-            {
-                if (grid[next.R][next.C] == '#')
-                {
-                    if (state.CheatStart == null)
-                    {
-                        queue.Enqueue(new(next, next, state.CheatEnd), steps + 1);
-                    }
-                }
-                else
-                {
-                    if (state.CheatStart != null && state.CheatEnd == null)
-                    {
-                        queue.Enqueue(new(next, state.CheatStart, next), steps + 1);
-                    }
-                    else
-                    {
-                        queue.Enqueue(new(next, state.CheatStart, next), steps + 1);
-                    }
-                }
-            }
+            Console.WriteLine($" There are {kvp.Value} cheats that save {kvp.Key} picoseconds.");
+            sum += kvp.Value;
         }
-        
-        return cheats.Count;
+
+        Console.WriteLine($"Part 1: {sum}");
     }
 
-    static IEnumerable<Cell> Next(char[][] grid, Cell cell)
+    static IEnumerable<Cell> GetCheats(Dictionary<Cell, int> steps, Cell current, int totalDistance)
     {
+        var distance = totalDistance - steps[current];
+
         foreach (var (dr, dc) in Directions)
         {
-            short r = (short)(cell.R + dr);
-            short c = (short)(cell.C + dc);
-            if (r < 0 || r >= grid.Length || c < 0 || c >= grid[0].Length) continue;
-            yield return new(r, c);
+            var next = new Cell((short)(current.R + dr), (short)(current.C + dc));
+
+            // Check if next is a wall
+            if (!steps.ContainsKey(next))
+            {
+                var cheat = new Cell((short)(current.R + dr * 2), (short)(current.C + dc * 2));
+                if (steps.TryGetValue(cheat, out int cheatSteps))
+                {
+                    var cheatDistance = totalDistance - cheatSteps;
+                    if (cheatDistance < distance) yield return cheat;
+                }
+            }
         }
     }
 
-    static Cell Find(char[][] grid, char needle)
+    static (Dictionary<Cell, Cell> Connections, Dictionary<Cell, int> Steps) Walk(char[][] grid, Cell start, Cell end)
     {
+        Dictionary<Cell, Cell> connections = [];
+        Dictionary<Cell, int> steps = [];
+
+        steps.Add(start, 0);
+
+        var distance = 1;
+        var current = start;
+
+        while (current != end)
+        {
+            foreach (var (dr, dc) in Directions)
+            {
+                var next = new Cell((short)(current.R + dr), (short)(current.C + dc));
+                if (grid[next.R][next.C] is '#' || connections.ContainsKey(next)) continue;
+
+                connections.Add(current, next);
+                steps.Add(next, distance++);
+                current = next;
+            }
+        }
+
+        return (connections, steps);
+    }
+
+    static (Cell Start, Cell End) FindNamedPositions(char[][] grid)
+    {
+        Cell start = default;
+        Cell end = default;
         for (short r = 0; r < grid.Length; r++)
         {
             for (short c = 0; c < grid[r].Length; c++)
             {
-                if (grid[r][c] == needle)
-                {
-                    grid[r][c] = '.';
-                    return new(r, c);
-                }
+                if (grid[r][c] == 'S') start = new(r, c);
+                if (grid[r][c] == 'E') end = new(r, c);
             }
         }
-        throw new Exception("Could not find needle");
+        return (start, end);
     }
 }
