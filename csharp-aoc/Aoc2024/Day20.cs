@@ -13,11 +13,6 @@ public static class Day20
 
         var (connections, steps) = Walk(grid, start, end);
 
-        Console.WriteLine($"Walked {connections.Count} from start to end: {start} -> {end}");
-        Console.WriteLine($"Number of steps: {steps.Count}");
-        Console.WriteLine($"Steps to start: {steps[start]}");
-        Console.WriteLine($"Steps to end: {steps[end]}");
-
         var cheats = new Dictionary<int, int>();
         foreach (var current in steps.Keys)
         {
@@ -31,12 +26,7 @@ public static class Day20
             }
         }
 
-        var sum = 0;
-        foreach (var kvp in cheats.OrderBy(kvp => kvp.Key).Where(kvp => kvp.Key >= 100))
-        {
-            Console.WriteLine($" There are {kvp.Value} cheats that save {kvp.Key} picoseconds.");
-            sum += kvp.Value;
-        }
+        var sum = cheats.Where(kvp => kvp.Key >= 100).Sum(kvp => kvp.Value);
 
         Console.WriteLine($"Part 1: {sum}");
     }
