@@ -2,10 +2,10 @@
 
 public static class Day21
 {
-    static readonly (int R, int C) Up       = (-1,0);
-    static readonly (int R, int C) Right    = (0, 1);
-    static readonly (int R, int C) Down     = (1, 0);
-    static readonly (int R, int C) Left     = (0, -1);
+    static readonly (int R, int C) Up       = (-1,  0);
+    static readonly (int R, int C) Right    = ( 0,  1);
+    static readonly (int R, int C) Down     = ( 1,  0);
+    static readonly (int R, int C) Left     = ( 0, -1);
 
     static readonly Dictionary<char, (int R, int C)> NumericKeypad = new()
     {
@@ -21,73 +21,94 @@ public static class Day21
         { '<', (1,0) }, { 'v', (1,1) }, { '>', (1,2) },
     };
 
+    static readonly List<(int R, int C)> ValidNumericKeyPositions = [.. NumericKeypad.Values];
+    static readonly List<(int R, int C)> ValidDirectionalKeyPositions = [.. DirectionalKeypad.Values];
+
+    private static readonly Dictionary<(Dictionary<char, (int R, int C)>, (int R, int C), (int R, int C), int), long> Cache = [];
+
     public static void Solve()
     {
         string[] inputs = ["208A", "586A", "341A", "463A", "593A"];
-        //string[] inputs = ["029A", "980A", "179A", "456A", "379A"];
 
-        long sum = 0;
-
-        foreach (var input in inputs)
-        {
-            List<List<char>> solutions = [];
-            foreach (var path in Search(NumericKeypad, new Queue<char>(input.ToCharArray())))
-            {
-                Search(solutions, path, 2);
-            }
-
-            Console.WriteLine($"{solutions.Min(s => s.Count)} * {int.Parse(input[0..3])}");
-            sum += solutions.Min(s => s.Count) * int.Parse(input[0..3]);
-        }
-
-        Console.WriteLine($"Part 1: {sum}");
+        Console.WriteLine($"Part 1: {inputs.Sum(input => GetComplexity(input, 2))}");
+        Console.WriteLine($"Part 2: {inputs.Sum(input => GetComplexity(input, 25))}");
     }
 
-    private static void Search(List<List<char>> solutions, List<char> path, int recurse)
+    static long GetComplexity(string sequence, int depth)
     {
-        if (recurse == 0)
+        Console.Write($"Calculating the level {depth} complexity of {sequence}... ");
+
+        var total = 0L;
+        var start = NumericKeypad['A'];
+        var number = int.Parse(sequence[0..3]);
+
+        foreach (var end in sequence.Select(key => NumericKeypad[key]))
         {
-            solutions.Add(path);
-            return;
+            total += GetSequenceCost(start, end, NumericKeypad, depth + 1);
+            start = end;            
         }
 
-        foreach (var solution in Search(DirectionalKeypad, new Queue<char>(path)))
-        {
-            Search(solutions, solution, recurse - 1);
-        }
+        Console.WriteLine($"{total} * {number}");
+
+        return total * number;
     }
 
-    static List<List<char>> Search(Dictionary<char, (int R, int C)> map, Queue<char> initial)
+    static long GetSequenceCost((int R, int C) start, (int R, int C) end, Dictionary<char, (int R, int C)> map, int depth)
     {
-        List<List<char>> solutions = [];
-        var queue = new Queue<(List<char>, Queue<char> Q, char Current)>();
-        queue.Enqueue(([], initial, 'A'));
+        if (Cache.TryGetValue((map, start, end, depth), out var cached))
+        {
+            return cached;
+        }
+
+        var validPositions = map == NumericKeypad ? ValidNumericKeyPositions : ValidDirectionalKeyPositions;
+
+        var cost = long.MaxValue;
+
+        var queue = new Queue<((int R, int C) Pos, string Sequence)>();
+        queue.Enqueue((start, ""));
 
         while (queue.TryDequeue(out var state))
         {
-            var (path, q, current) = state;
+            var (pos, sequence) = state;
 
-            if (q.Count == 0)
+            if (pos == end)
             {
-                solutions.Add(path);
+                cost = Math.Min(cost, GetCost(sequence + 'A', depth - 1));
                 continue;
             }
 
-            var next = q.Dequeue();
-            foreach (var possible in Search([.. map.Values], map[current], map[next]))
+            foreach (var possible in Search(validPositions, pos, end))
             {
-                var presses = ConstructPresses([map[current], .. possible]);
-                queue.Enqueue(([.. path, .. presses], new Queue<char>(q), next));
+                var presses = ConstructPresses([pos, .. possible]);
+                queue.Enqueue((end, string.Concat(sequence, string.Concat(presses))));
             }
         }
 
-        return solutions;
+        return Cache[(map, start, end, depth)] = cost;
+    }
+
+    static long GetCost(string sequence, int depth)
+    {
+        if (depth == 0) { return sequence.Length; }
+
+        long cost = 0;
+        var current = DirectionalKeypad['A'];
+
+        foreach (var next in sequence.Select(n => DirectionalKeypad[n]))
+        {
+            cost += GetSequenceCost(current, next, DirectionalKeypad, depth);
+            current = next;
+        }
+
+        return cost;
     }
 
     static List<List<(int R, int C)>> Search(List<(int R, int C)> valid, (int R, int C) from, (int R, int C) to)
     {
-        var paths = new List<List<(int R, int C)>>();
-        if (from == to) return [[]];
+        if (from == to)
+        {
+            throw new ArgumentException($"from and to must be different positions");
+        }
 
         var directions = new List<(int R, int C)>();
         if (from.R < to.R) directions.Add(Down);
@@ -95,6 +116,8 @@ public static class Day21
 
         if (from.C < to.C) directions.Add(Right);
         else if (from.C > to.C) directions.Add(Left);
+
+        var paths = new List<List<(int R, int C)>>();
 
         var queue = new Queue<(List<(int R, int C)>, (int R, int C))>();
         queue.Enqueue(([], from));
@@ -123,6 +146,7 @@ public static class Day21
     static List<char> ConstructPresses(List<(int R, int C)> path)
     {
         List<char> presses = [];
+
         var current = path.First();
         foreach (var next in path.Skip(1))
         {
@@ -130,9 +154,11 @@ public static class Day21
             else if (current.R > next.R) presses.Add('^');
             else if (current.C < next.C) presses.Add('>');
             else if (current.C > next.C) presses.Add('<');
+            else throw new Exception($"Bad direction {current} -> {next}");
+
             current = next;
         }
-        presses.Add('A');
+
         return presses;
     }
 }
