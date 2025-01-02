@@ -1,1 +1,1 @@
-﻿Aoc2018.Day11.Run();
+﻿Aoc2018.Day12.Run();
